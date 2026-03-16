@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { getBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost } from '@/lib/blogStore';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, Plus, Save, Eye, Trash2, Globe, FileText,
@@ -33,13 +33,13 @@ export default function BlogAdmin() {
 
     const { data: posts = [], isLoading } = useQuery({
         queryKey: ['blog-posts-admin'],
-        queryFn: () => base44.entities.BlogPost.list('-created_date', 50),
+        queryFn: () => getBlogPosts(),
     });
 
     const saveMutation = useMutation({
         mutationFn: (data) => editingId
-            ? base44.entities.BlogPost.update(editingId, data)
-            : base44.entities.BlogPost.create(data),
+            ? updateBlogPost(editingId, data)
+            : createBlogPost(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['blog-posts-admin'] });
             queryClient.invalidateQueries({ queryKey: ['blog-posts-public'] });
@@ -49,7 +49,7 @@ export default function BlogAdmin() {
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id) => base44.entities.BlogPost.delete(id),
+        mutationFn: (id) => deleteBlogPost(id),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['blog-posts-admin'] }),
     });
 
@@ -67,7 +67,7 @@ export default function BlogAdmin() {
     const openEditorById = async (id) => {
         if (id === 'new') { setForm(emptyPost); setEditingId(null); setView('editor'); return; }
         try {
-            const all = await base44.entities.BlogPost.list('-created_date', 100);
+            const all = getBlogPosts();
             const post = all.find(p => p.id === id);
             if (post) { setForm({ ...post }); setEditingId(id); setView('editor'); }
         } catch { }

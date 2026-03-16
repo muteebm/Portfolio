@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { getBlogPostById, updateBlogPost } from '@/lib/blogStore';
 import ReactMarkdown from 'react-markdown';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Clock, Eye, Calendar, Tag, PenLine } from 'lucide-react';
@@ -25,13 +25,12 @@ export default function BlogPost() {
 
     const { data: post, isLoading } = useQuery({
         queryKey: ['blog-post', id],
-        queryFn: () => base44.entities.BlogPost.filter({ id }),
-        select: data => Array.isArray(data) ? data[0] : data,
+        queryFn: () => getBlogPostById(id),
     });
 
     // Increment view count on load
     const viewMutation = useMutation({
-        mutationFn: () => base44.entities.BlogPost.update(id, { views: (post?.views || 0) + 1 }),
+        mutationFn: () => updateBlogPost(id, { views: (post?.views || 0) + 1 }),
     });
 
     useEffect(() => {

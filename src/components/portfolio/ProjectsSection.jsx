@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import { Layers } from 'lucide-react';
 import ProjectCard from './ProjectCard';
 
@@ -13,13 +11,14 @@ const filters = [
     { key: 'open_source', label: 'Open Source' },
 ];
 
+// Local static projects — edit this array to add/update projects
+const LOCAL_PROJECTS = [];
+
 export default function ProjectsSection() {
     const [activeFilter, setActiveFilter] = useState('all');
 
-    const { data: projects = [], isLoading } = useQuery({
-        queryKey: ['projects'],
-        queryFn: () => base44.entities.Project.list('order', 50),
-    });
+    const projects = LOCAL_PROJECTS;
+    const isLoading = false;
 
     const filtered = activeFilter === 'all' ? projects : projects.filter(p => p.type === activeFilter);
 

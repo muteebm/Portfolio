@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Search, PenLine, ArrowRight } from 'lucide-react';
 import BlogPostCard from '../components/blog/BlogPostCard';
 import Navbar from '../components/portfolio/Navbar';
+import { getBlogPosts } from '@/lib/blogStore';
 
 const CATEGORIES = ['All', 'AI & LLMs', 'Microservices', 'Backend', 'Frontend', 'DevOps', 'Career', 'Open Source', 'Tutorials'];
 
@@ -15,7 +15,7 @@ export default function Blog() {
 
     const { data: posts = [], isLoading } = useQuery({
         queryKey: ['blog-posts-public'],
-        queryFn: () => base44.entities.BlogPost.filter({ status: 'published' }, '-created_date', 50),
+        queryFn: () => getBlogPosts().filter(p => p.status === 'published'),
     });
 
     const filtered = posts.filter(p => {
