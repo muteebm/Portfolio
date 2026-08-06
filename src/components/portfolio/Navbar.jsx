@@ -11,17 +11,41 @@ const portfolioLinks = [
     { label: 'contact', href: '#contact' },
 ];
 
+// Smooth-scroll to a section without triggering route navigation / refresh
+const scrollToSection = (e, href) => {
+    e.preventDefault();
+    const id = href.replace('#', '');
+    const el = document.getElementById(id);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Update URL hash without scrolling/jumping
+        history.replaceState(null, '', `#${id}`);
+    }
+};
+
 export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [activeSection, setActiveSection] = useState('');
     const location = useLocation();
     const isBlog = location.pathname.startsWith('/Blog');
     const navLinks = isBlog ? [] : portfolioLinks;
 
     useEffect(() => {
-        const fn = () => setScrolled(window.scrollY > 60);
-        window.addEventListener('scroll', fn);
-        return () => window.removeEventListener('scroll', fn);
+        const onScroll = () => {
+            setScrolled(window.scrollY > 60);
+            // Track active section for highlight
+            const sections = document.querySelectorAll('section[id]');
+            let current = '';
+            sections.forEach((sec) => {
+                const top = sec.getBoundingClientRect().top;
+                if (top <= 120) current = sec.id;
+            });
+            setActiveSection(current);
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+        return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
     return (
@@ -45,8 +69,9 @@ export default function Navbar() {
                     {/* Desktop */}
                     <div className="hidden md:flex items-center gap-6">
                         {navLinks.map((l) => (
-                            <a key={l.label} href={l.href}
-                                className="text-sm font-mono text-slate-500 hover:text-white transition-colors tracking-wide">
+                            <a key={l.label} href={l.href} onClick={(e) => scrollToSection(e, l.href)}
+                                className="text-sm font-mono text-slate-500 hover:text-white transition-colors tracking-wide"
+                                style={activeSection === l.href.replace('#', '') ? { color: '#67e8f9' } : {}}>
                                 <span style={{ color: '#67e8f9' }}>./</span>{l.label}
                             </a>
                         ))}
@@ -66,7 +91,8 @@ export default function Navbar() {
 
                     {/* Mobile toggle */}
                     <button onClick={() => setMobileOpen(!mobileOpen)}
-                        className="md:hidden p-2 text-slate-500 hover:text-white transition-colors">
+                        className="md:hidden p-2 text-slate-500 hover:text-white transition-colors"
+                        aria-label="Toggle menu">
                         {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                     </button>
                 </div>
@@ -79,7 +105,8 @@ export default function Navbar() {
                         style={{ background: 'rgba(3,7,18,0.97)', backdropFilter: 'blur(20px)' }}
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                         {navLinks.map((l, i) => (
-                            <motion.a key={l.label} href={l.href} onClick={() => setMobileOpen(false)}
+                            <motion.a key={l.label} href={l.href}
+                                onClick={(e) => { scrollToSection(e, l.href); setMobileOpen(false); }}
                                 className="text-2xl font-mono text-slate-300 hover:text-white"
                                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.06 }}>

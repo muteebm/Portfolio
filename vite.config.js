@@ -12,4 +12,18 @@ export default defineConfig({
             '@': path.resolve(__dirname, './src'),
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    // Split heavy third-party libraries into their own chunks
+                    'three': ['three'],
+                    'react-vendor': ['react', 'react-dom', 'react-router-dom', 'framer-motion'],
+                    'charts': ['recharts', 'canvas-confetti'],
+                    'markdown': ['react-markdown'],
+                },
+            },
+        },
+        chunkSizeWarningLimit: 700,
+    },
 });

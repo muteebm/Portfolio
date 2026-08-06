@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Phone, Github, Linkedin, Send, Copy, Check } from 'lucide-react';
+import { Phone, Github, Linkedin, Send, Copy, Check } from 'lucide-react';
 
 const links = [
     { icon: Github, label: "GitHub", value: "muteebm", href: "https://github.com/muteebm", color: "#c084fc" },
@@ -18,7 +18,7 @@ export default function ContactSection() {
     };
 
     return (
-        <section id="contact" className="relative py-32 bg-[#030712] overflow-hidden">
+        <section id="contact" className="relative py-32 bg-transparent overflow-hidden">
             <div className="absolute top-0 inset-x-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(99,179,237,0.15), transparent)' }} />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_100%,rgba(99,179,237,0.04),transparent)]" />
 
@@ -28,7 +28,7 @@ export default function ContactSection() {
                     <p className="text-xs uppercase tracking-[0.3em] font-mono mb-3" style={{ color: '#67e8f9' }}>// contact</p>
                     <h2 className="text-5xl sm:text-6xl font-black text-white tracking-tight mb-4">
                         Let's build<br />
-                        <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg, #67e8f9, #c084fc)' }}>
+                        <span className="text-slate-400">
                             something great.
                         </span>
                     </h2>
@@ -37,11 +37,17 @@ export default function ContactSection() {
                     </p>
                 </motion.div>
 
-                {/* Big email CTA */}
-                <motion.div className="mb-8"
+                {/* Big email CTA with animated gradient border */}
+                <motion.div className="mb-8 relative"
                     initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}>
+                    {/* Animated gradient border */}
+                    <div className="absolute -inset-px rounded-2xl opacity-60 animate-borderSpin pointer-events-none"
+                        style={{
+                            background: 'conic-gradient(from 0deg, transparent 0%, rgba(99,179,237,0.4) 10%, transparent 25%, rgba(192,132,252,0.4) 40%, transparent 55%, rgba(103,232,249,0.4) 70%, transparent 85%)',
+                            animation: 'borderSpin 6s linear infinite',
+                        }} />
                     <div className="group relative rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 overflow-hidden"
-                        style={{ background: 'rgba(15,23,42,0.7)', border: '1px solid rgba(99,179,237,0.1)' }}>
+                        style={{ background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(3,7,18,0.9)' }}>
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
                             style={{ background: 'radial-gradient(ellipse at 0% 50%, rgba(6,182,212,0.06), transparent 60%)' }} />
                         <div className="text-center sm:text-left">

@@ -9,7 +9,8 @@ function CountUp({ target, suffix = '', duration = 2000 }) {
     useEffect(() => {
         if (!inView) return;
         let start = 0;
-        const step = target / (duration / 16);
+        const safeDuration = Math.max(duration, 100);
+        const step = target / (safeDuration / 16);
         const timer = setInterval(() => {
             start += step;
             if (start >= target) { setCount(target); clearInterval(timer); }
@@ -37,7 +38,7 @@ const stats = [
 
 export default function AboutSection() {
     return (
-        <section id="about" className="relative py-32 bg-[#030712] overflow-hidden">
+        <section id="about" className="relative py-32 bg-transparent overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_50%,rgba(139,92,246,0.04),transparent)]" />
 
             <div className="max-w-6xl mx-auto px-6">
@@ -45,7 +46,7 @@ export default function AboutSection() {
                     <p className="text-xs uppercase tracking-[0.3em] font-mono mb-3" style={{ color: '#67e8f9' }}>// about</p>
                     <h2 className="text-4xl sm:text-5xl font-black text-white mb-16 tracking-tight">
                         I build things that<br />
-                        <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(90deg, #c084fc, #818cf8)' }}>think & scale.</span>
+                        <span className="text-slate-400">think & scale.</span>
                     </h2>
                 </motion.div>
 

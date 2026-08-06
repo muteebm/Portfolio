@@ -25,6 +25,7 @@ export default function ProjectCard({ project }) {
 
     const onMouseMove = (e) => {
         const card = cardRef.current;
+        if (!card) return;
         const rect = card.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -42,22 +43,38 @@ export default function ProjectCard({ project }) {
     return (
         <motion.div
             ref={cardRef}
-            className="relative rounded-2xl overflow-hidden cursor-default select-none"
+            className="relative rounded-2xl overflow-hidden cursor-default select-none group"
             style={{
                 background: 'rgba(15,23,42,0.6)',
                 border: `1px solid rgba(148,163,184,0.07)`,
                 transformStyle: 'preserve-3d',
-                transform: `perspective(800px) rotateX(${rotate.x}deg) rotateY(${rotate.y}deg)`,
-                transition: hovered ? 'transform 0.1s' : 'transform 0.5s ease',
+                perspective: 800,
             }}
             onMouseMove={onMouseMove}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={onMouseLeave}
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
+            viewport={{ once: true, margin: '-50px' }}
             transition={{ duration: 0.5 }}
+            animate={{
+                rotateX: rotate.x,
+                rotateY: rotate.y,
+                transition: { duration: hovered ? 0.1 : 0.5, ease: [0.16, 1, 0.3, 1] },
+            }}
         >
+            {/* Animated gradient top border */}
+            <div className="absolute top-0 left-0 right-0 h-px overflow-hidden">
+                <div
+                    className="h-full w-full"
+                    style={{
+                        background: `linear-gradient(90deg, transparent, ${colors.text}, transparent)`,
+                        backgroundSize: '200% 100%',
+                        animation: hovered ? 'borderSlide 2s linear infinite' : 'none',
+                    }}
+                />
+            </div>
+
             {/* Dynamic glow spot */}
             {hovered && (
                 <div className="absolute inset-0 pointer-events-none transition-opacity"
@@ -67,12 +84,9 @@ export default function ProjectCard({ project }) {
                 />
             )}
 
-            {/* Top accent line */}
-            <div className="absolute top-0 inset-x-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${colors.text}50, transparent)` }} />
-
             {/* Image */}
             {project.image_url && (
-                <div className="h-44 overflow-hidden">
+                <div className="h-44 overflow-hidden relative">
                     <img src={project.image_url} alt={project.title}
                         className="w-full h-full object-cover transition-transform duration-700"
                         style={{ transform: hovered ? 'scale(1.05)' : 'scale(1)' }}
@@ -81,7 +95,8 @@ export default function ProjectCard({ project }) {
                 </div>
             )}
 
-            <div className="p-6">
+            {/* Card content */}
+            <div className="p-6" style={{ transform: 'translateZ(30px)' }}>
                 {/* Type badge */}
                 <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-mono mb-3"
                     style={{ color: colors.text, background: colors.bg, border: `1px solid ${colors.border}` }}>
@@ -94,14 +109,16 @@ export default function ProjectCard({ project }) {
                         {project.github_url && (
                             <a href={project.github_url} target="_blank" rel="noopener noreferrer"
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-white transition-colors"
-                                style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                style={{ background: 'rgba(255,255,255,0.05)' }}
+                                aria-label="GitHub repository">
                                 <Github className="w-4 h-4" />
                             </a>
                         )}
                         {project.live_url && (
                             <a href={project.live_url} target="_blank" rel="noopener noreferrer"
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-white transition-colors"
-                                style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                style={{ background: 'rgba(255,255,255,0.05)' }}
+                                aria-label="Live demo">
                                 <ExternalLink className="w-4 h-4" />
                             </a>
                         )}
