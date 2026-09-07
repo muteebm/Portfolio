@@ -42,11 +42,15 @@ export default function Navbar() {
     return (
         <>
             <motion.nav
-                className="fixed top-0 inset-x-0 z-50 transition-all duration-500"
+                className="fixed top-0 inset-x-0 z-50 transition-all duration-500 pb-4"
                 style={scrolled ? {
-                    background: 'rgba(3,7,18,0.85)',
-                    backdropFilter: 'blur(20px)',
-                    borderBottom: '1px solid rgba(99,179,237,0.07)',
+                    // Fade the panel (and its blur) out at the bottom instead of a hard
+                    // edge — a hard blur boundary reads as a bright seam over the 3D scene.
+                    background: 'linear-gradient(180deg, rgba(3,7,18,0.96) 0%, rgba(3,7,18,0.9) 60%, rgba(3,7,18,0) 100%)',
+                    backdropFilter: 'blur(14px)',
+                    WebkitBackdropFilter: 'blur(14px)',
+                    maskImage: 'linear-gradient(180deg, #000 0%, #000 62%, transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 62%, transparent 100%)',
                 } : {}}
                 initial={{ y: -80 }}
                 animate={{ y: 0 }}
