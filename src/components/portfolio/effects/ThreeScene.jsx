@@ -6,18 +6,59 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 /**
- * ThreeScene — Full-screen WebGL background representing the developer's stack.
+ * ThreeScene — one coherent, full-viewport WebGL backdrop: an agentic system in flight.
  *
- * Elements (all distributed toward screen edges so the center stays readable):
- *  ─ Left       → Microservices Mesh (Node.js/TypeScript architecture)
- *  ─ Right      → LLM Neural Flow (LangChain agentic workflows)
- *  ─ Top-Left   → Cloud Server Stack (Azure/AWS/GCP)
- *  ─ Top-Right  → Message Queue (Azure Service Bus event pulses)
- *  ─ Bottom-Left→ Database (PostgreSQL/MongoDB/Redis)
- *  ─ Bottom-Right→ Container (Docker/CI-CD)
- *  ─ Bottom     → Perspective grid floor
- *  ─ Edges      → Faint text labels
+ *  · Reasoning core   — a slowly turning icosahedron with a breathing inner glow
+ *                       (the LLM agent / MCP hub).
+ *  · Service rings    — three tilted orbits of service nodes linked to the core
+ *                       (event-driven microservices around the agent).
+ *  · Message pulses   — bright packets that travel node → core → node along
+ *                       curved paths (Service Bus events, tool calls).
+ *  · Data field       — a wide, slowly drifting point cloud with a soft twinkle
+ *                       (the data layer everything sits on).
+ *  · Horizon grid     — far below, fading into fog.
+ *
+ * The whole system sits deep behind the content and the camera orbits it as
+ * the visitor scrolls, so every section sees the system from a new angle while
+ * the centre of the screen stays quiet enough to read.
  */
+
+const CYAN = 0x67e8f9;
+const VIOLET = 0xc084fc;
+const INDIGO = 0x818cf8;
+const EMERALD = 0x34d399;
+const AMBER = 0xfbbf24;
+
+const DATA_FIELD_VERT = /* glsl */`
+    uniform float uTime;
+    uniform float uPixelRatio;
+    attribute float aSize;
+    attribute float aPhase;
+    varying float vTwinkle;
+    void main() {
+        vec3 p = position;
+        p.y += sin(uTime * 0.25 + aPhase) * 0.35;
+        p.x += cos(uTime * 0.18 + aPhase * 1.7) * 0.25;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        vTwinkle = 0.55 + 0.45 * sin(uTime * 1.4 + aPhase * 6.2831);
+        gl_PointSize = aSize * uPixelRatio * (95.0 / -mv.z);
+        gl_Position = projectionMatrix * mv;
+    }
+`;
+
+const DATA_FIELD_FRAG = /* glsl */`
+    uniform vec3 uColorA;
+    uniform vec3 uColorB;
+    varying float vTwinkle;
+    void main() {
+        float d = length(gl_PointCoord - 0.5);
+        if (d > 0.5) discard;
+        float alpha = smoothstep(0.5, 0.0, d) * vTwinkle * 0.32;
+        vec3 col = mix(uColorA, uColorB, vTwinkle);
+        gl_FragColor = vec4(col, alpha);
+    }
+`;
+
 export default function ThreeScene() {
     /** @type {import('react').MutableRefObject<HTMLDivElement|null>} */
     const containerRef = useRef(null);
@@ -26,437 +67,300 @@ export default function ThreeScene() {
         const container = containerRef.current;
         if (!container) return;
 
-        const canvasEl = document.createElement('canvas');
-        const hasWebGL = !!(canvasEl.getContext('webgl') || canvasEl.getContext('experimental-webgl'));
+        const probe = document.createElement('canvas');
+        const hasWebGL = !!(probe.getContext('webgl') || probe.getContext('experimental-webgl'));
         if (!hasWebGL) return;
 
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const performanceTier = (() => {
-            const w = window.innerWidth;
-            if (w < 480) return 'low';
-            if (w < 900) return 'medium';
-            return 'high';
-        })();
+        const tier = window.innerWidth < 480 ? 'low' : window.innerWidth < 900 ? 'medium' : 'high';
+        const counts = {
+            high: { field: 2600, pulses: 34, ringNodes: [14, 11, 9] },
+            medium: { field: 1400, pulses: 20, ringNodes: [11, 9, 7] },
+            low: { field: 700, pulses: 12, ringNodes: [9, 7, 6] },
+        }[tier];
 
+        // ── Renderer / scene / camera ─────────────────────────────────────
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x030712, performanceTier === 'high' ? 0.004 : 0.008);
+        scene.fog = new THREE.FogExp2(0x030712, 0.04);
 
-        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 2.4, 9.5);
-        camera.lookAt(0, 0, 0);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, performanceTier === 'high' ? 2 : 1.5));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, tier === 'high' ? 2 : 1.5));
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
+        renderer.toneMappingExposure = 1.05;
         container.appendChild(renderer.domElement);
-        renderer.domElement.style.position = 'absolute';
-        renderer.domElement.style.inset = '0';
-        renderer.domElement.style.pointerEvents = 'none';
+        Object.assign(renderer.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
 
-        // ---- Post-processing ----
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        const bloomPass = new UnrealBloomPass(
-            new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.25,
-            0.6,
-            0.8
-        );
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.45, 0.8, 0.82);
         composer.addPass(bloomPass);
         composer.addPass(new OutputPass());
 
-        // ---- Lights ----
-        const ambient = new THREE.AmbientLight(0x334155, 0.45);
-        scene.add(ambient);
-        const dirLight = new THREE.DirectionalLight(0x67e8f9, 1.0);
-        dirLight.position.set(5, 8, 4);
-        scene.add(dirLight);
-        const pointLight = new THREE.PointLight(0xc084fc, 1.2, 20);
-        pointLight.position.set(-4, -2, 3);
-        scene.add(pointLight);
+        // The system lives here — right of centre and deep, so hero copy stays clear.
+        const system = new THREE.Group();
+        system.position.set(3.2, 0.6, -2);
+        scene.add(system);
 
-        /** Helper to make a faint edge label sprite */
-        const makeLabel = (text, x, y, z, color) => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 96;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            ctx.font = '26px "Courier New", monospace';
-            ctx.fillStyle = color;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, 256, 48);
-            const tex = new THREE.CanvasTexture(canvas);
-            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-            sprite.position.set(x, y, z);
-            sprite.scale.set(3.2, 0.6, 1);
-            scene.add(sprite);
+        // ── Reasoning core ────────────────────────────────────────────────
+        const coreOuter = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1.15, 1)),
+            new THREE.LineBasicMaterial({ color: VIOLET, transparent: true, opacity: 0.45 })
+        );
+        const coreMid = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.72, 0)),
+            new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.55 })
+        );
+        const coreGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(0.32, 24, 24),
+            new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.85 })
+        );
+        const coreHalo = new THREE.Mesh(
+            new THREE.SphereGeometry(0.62, 24, 24),
+            new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false })
+        );
+        system.add(coreOuter, coreMid, coreGlow, coreHalo);
+
+        // ── Service rings ─────────────────────────────────────────────────
+        /** @type {{mesh: THREE.Mesh, ring: THREE.Group, base: THREE.Vector3}[]} */
+        const nodes = [];
+        const ringDefs = [
+            { radius: 3.1, tilt: new THREE.Euler(0.55, 0.0, 0.25), color: CYAN, speed: 0.06 },
+            { radius: 4.4, tilt: new THREE.Euler(-0.35, 0.4, -0.6), color: INDIGO, speed: -0.04 },
+            { radius: 5.8, tilt: new THREE.Euler(1.15, -0.2, 0.15), color: EMERALD, speed: 0.028 },
+        ];
+        const ringGroups = ringDefs.map((def, ri) => {
+            const ring = new THREE.Group();
+            ring.rotation.copy(def.tilt);
+            system.add(ring);
+
+            // orbit line
+            const orbitPts = [];
+            for (let i = 0; i <= 128; i++) {
+                const a = (i / 128) * Math.PI * 2;
+                orbitPts.push(new THREE.Vector3(Math.cos(a) * def.radius, 0, Math.sin(a) * def.radius));
+            }
+            ring.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(orbitPts),
+                new THREE.LineBasicMaterial({ color: def.color, transparent: true, opacity: 0.12 })
+            ));
+
+            const n = counts.ringNodes[ri];
+            const nodeGeo = ri === 0
+                ? new THREE.OctahedronGeometry(0.16, 0)
+                : ri === 1 ? new THREE.BoxGeometry(0.22, 0.22, 0.22) : new THREE.TetrahedronGeometry(0.18, 0);
+            for (let i = 0; i < n; i++) {
+                const a = (i / n) * Math.PI * 2;
+                const base = new THREE.Vector3(Math.cos(a) * def.radius, 0, Math.sin(a) * def.radius);
+                const mesh = new THREE.Mesh(
+                    nodeGeo,
+                    new THREE.MeshBasicMaterial({ color: def.color, wireframe: true, transparent: true, opacity: 0.6 })
+                );
+                mesh.position.copy(base);
+                ring.add(mesh);
+                nodes.push({ mesh, ring, base });
+            }
+            return { group: ring, def };
+        });
+
+        // spokes: each node → core (updated every frame since rings rotate)
+        const spokePositions = new Float32Array(nodes.length * 2 * 3);
+        const spokeGeo = new THREE.BufferGeometry();
+        spokeGeo.setAttribute('position', new THREE.BufferAttribute(spokePositions, 3));
+        const spokes = new THREE.LineSegments(
+            spokeGeo,
+            new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.07 })
+        );
+        system.add(spokes);
+
+        // ── Message pulses ────────────────────────────────────────────────
+        const pulseGeo = new THREE.SphereGeometry(0.055, 8, 8);
+        const pulseColors = [CYAN, EMERALD, VIOLET, AMBER];
+        const worldTmp = new THREE.Vector3();
+        const coreWorld = new THREE.Vector3();
+
+        const nodeWorld = (node, out) => node.ring.localToWorld(out.copy(node.base));
+
+        const makeCurve = (from, to) => {
+            const mid = from.clone().add(to).multiplyScalar(0.5);
+            const bulge = from.clone().sub(to).length() * 0.35;
+            mid.add(new THREE.Vector3((Math.random() - 0.5) * bulge, (Math.random() - 0.5) * bulge + bulge * 0.4, (Math.random() - 0.5) * bulge));
+            return new THREE.QuadraticBezierCurve3(from.clone(), mid, to.clone());
         };
 
-        // ─────────────────────────────────────────────
-        //  LEFT: Microservices mesh (Node.js / TypeScript)
-        // ─────────────────────────────────────────────
-        const meshGroup = new THREE.Group();
-        scene.add(meshGroup);
-        const meshPositions = [
-            [-5.1, 1.4, 0.5], [-4.2, 1.9, -0.6], [-3.6, 0.6, 0.8],
-            [-4.9, 0.3, -0.8], [-3.8, -0.5, 0.2], [-5.4, -0.8, 0.9],
-            [-4.3, -1.4, -0.3],
-        ];
-        const meshNodes = [];
-        meshPositions.forEach((p, i) => {
-            const geo = new THREE.OctahedronGeometry(0.14, 0);
-            const mat = new THREE.MeshBasicMaterial({
-                color: i === 0 ? 0x67e8f9 : 0x0891b2,
-                wireframe: i !== 0,
-                transparent: true,
-                opacity: i === 0 ? 0.9 : 0.5,
-            });
-            const node = new THREE.Mesh(geo, mat);
-            node.position.set(p[0], p[1], p[2]);
-            meshGroup.add(node);
-            meshNodes.push(node);
-        });
-        for (let i = 0; i < meshPositions.length - 1; i++) {
-            const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(meshPositions[i][0], meshPositions[i][1], meshPositions[i][2]),
-                new THREE.Vector3(meshPositions[i + 1][0], meshPositions[i + 1][1], meshPositions[i + 1][2]),
-            ]);
-            const line = new THREE.Line(
-                lineGeo,
-                new THREE.LineBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.15 })
-            );
-            meshGroup.add(line);
-        }
-        makeLabel('microservices — node / ts', -4.6, -2.2, 0.3, 'rgba(103,232,249,0.35)');
-
-        // ─────────────────────────────────────────────
-        //  RIGHT: LLM neural flow (LangChain / agents)
-        // ─────────────────────────────────────────────
-        const llmGroup = new THREE.Group();
-        scene.add(llmGroup);
-        const nodesPerLayer = 4;
-        const inputPositions = [];
-        const hiddenPositions = [];
-        const outputPositions = [];
-        for (let i = 0; i < nodesPerLayer; i++) inputPositions.push(new THREE.Vector3(3.5, 1.6 - i * 0.55, -0.4));
-        for (let i = 0; i < nodesPerLayer; i++) hiddenPositions.push(new THREE.Vector3(4.7, 1.6 - i * 0.55, 0.4));
-        for (let i = 0; i < nodesPerLayer; i++) outputPositions.push(new THREE.Vector3(5.9, 1.6 - i * 0.55, -0.4));
-        const llmNodes = [];
-        [inputPositions, hiddenPositions, outputPositions].forEach((layer, layerIdx) => {
-            layer.forEach((p, i) => {
-                const geo = new THREE.SphereGeometry(0.09, 10, 10);
-                const mat = new THREE.MeshBasicMaterial({
-                    color: layerIdx === 2 ? 0xc084fc : 0x67e8f9,
-                    transparent: true,
-                    opacity: layerIdx === 2 ? 0.9 : 0.6,
-                });
-                const node = new THREE.Mesh(geo, mat);
-                node.position.copy(p);
-                llmGroup.add(node);
-                llmNodes.push({ mesh: node, layer: layerIdx });
-            });
-        });
-        for (let i = 0; i < nodesPerLayer; i++) {
-            for (let j = 0; j < nodesPerLayer; j++) {
-                const lineGeo = new THREE.BufferGeometry().setFromPoints([inputPositions[i], hiddenPositions[j]]);
-                llmGroup.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.08 })));
+        /** @type {{mesh: THREE.Mesh, t: number, speed: number, curve: THREE.QuadraticBezierCurve3, toCore: boolean, node: typeof nodes[0]}[]} */
+        const pulses = [];
+        const spawnPulse = (p) => {
+            const node = nodes[Math.floor(Math.random() * nodes.length)];
+            const toCore = p ? !p.toCore : Math.random() > 0.5;
+            nodeWorld(node, worldTmp);
+            scene.updateMatrixWorld();
+            coreGlow.getWorldPosition(coreWorld);
+            const from = toCore ? worldTmp.clone() : coreWorld.clone();
+            const to = toCore ? coreWorld.clone() : worldTmp.clone();
+            const curve = makeCurve(from, to);
+            if (p) {
+                p.curve = curve; p.t = 0; p.toCore = toCore; p.node = node;
+                p.speed = 0.25 + Math.random() * 0.35;
+                return p;
             }
-        }
-        for (let i = 0; i < nodesPerLayer; i++) {
-            for (let j = 0; j < nodesPerLayer; j++) {
-                const lineGeo = new THREE.BufferGeometry().setFromPoints([hiddenPositions[i], outputPositions[j]]);
-                llmGroup.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xc084fc, transparent: true, opacity: 0.08 })));
-            }
-        }
-        const tokenGeo = new THREE.SphereGeometry(0.035, 8, 8);
-        const tokenMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.9 });
-        const tokens = [];
-        for (let t = 0; t < 6; t++) {
-            const tok = new THREE.Mesh(tokenGeo, tokenMat);
-            llmGroup.add(tok);
-            tokens.push({
-                mesh: tok,
-                phase: (t / 6) * Math.PI * 2,
-                path: Math.floor(Math.random() * nodesPerLayer),
-            });
-        }
-        makeLabel('llm / langchain agents', 4.7, -1.2, 0.4, 'rgba(192,132,252,0.35)');
+            const mesh = new THREE.Mesh(
+                pulseGeo,
+                new THREE.MeshBasicMaterial({ color: pulseColors[Math.floor(Math.random() * pulseColors.length)], transparent: true, opacity: 0.95 })
+            );
+            scene.add(mesh);
+            return { mesh, t: Math.random(), speed: 0.25 + Math.random() * 0.35, curve, toCore, node };
+        };
+        system.updateMatrixWorld(true);
+        for (let i = 0; i < counts.pulses; i++) pulses.push(spawnPulse(null));
 
-        // ─────────────────────────────────────────────
-        //  TOP-LEFT: Cloud server stack (Azure / AWS)
-        // ─────────────────────────────────────────────
-        const cloudGroup = new THREE.Group();
-        scene.add(cloudGroup);
-        {
-            const boxGeo = new THREE.IcosahedronGeometry(0.75, 0);
-            const boxWire = new THREE.LineSegments(
-                new THREE.WireframeGeometry(boxGeo),
-                new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.35 })
-            );
-            boxWire.position.set(-5.6, 3.1, -1.6);
-            cloudGroup.add(boxWire);
+        // ── Data field ────────────────────────────────────────────────────
+        const fieldPos = new Float32Array(counts.field * 3);
+        const fieldSize = new Float32Array(counts.field);
+        const fieldPhase = new Float32Array(counts.field);
+        for (let i = 0; i < counts.field; i++) {
+            // wide, shallow disc biased away from the screen centre
+            const r = 4 + Math.pow(Math.random(), 0.6) * 26;
+            const a = Math.random() * Math.PI * 2;
+            fieldPos[i * 3] = Math.cos(a) * r;
+            fieldPos[i * 3 + 1] = (Math.random() - 0.5) * 9 - 1.5;
+            fieldPos[i * 3 + 2] = Math.sin(a) * r * 0.7 - 4;
+            fieldSize[i] = 0.35 + Math.random() * 1.1;
+            fieldPhase[i] = Math.random();
         }
-        for (let s = 0; s < 3; s++) {
-            const rackGeo = new THREE.BoxGeometry(0.55, 0.18, 0.45);
-            const rackWire = new THREE.LineSegments(
-                new THREE.WireframeGeometry(rackGeo),
-                new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.25 })
-            );
-            rackWire.position.set(-4.3, 3.0 - s * 0.3, -0.9);
-            cloudGroup.add(rackWire);
-        }
-        makeLabel('azure / aws cloud', -5, 1.7, -1.2, 'rgba(129,140,248,0.35)');
-
-        // ─────────────────────────────────────────────
-        //  TOP-RIGHT: Message queue (Azure Service Bus)
-        // ─────────────────────────────────────────────
-        const mqGroup = new THREE.Group();
-        scene.add(mqGroup);
-        const mqStart = new THREE.Vector3(4.2, 3.2, -1.3);
-        const mqEnd = new THREE.Vector3(5.8, 2.6, -0.6);
-        {
-            const a = new THREE.Mesh(
-                new THREE.SphereGeometry(0.13, 10, 10),
-                new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.8 })
-            );
-            a.position.copy(mqStart);
-            mqGroup.add(a);
-            const b = new THREE.Mesh(
-                new THREE.SphereGeometry(0.13, 10, 10),
-                new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.8 })
-            );
-            b.position.copy(mqEnd);
-            mqGroup.add(b);
-        }
-        const mqArcPts = [];
-        for (let i = 0; i <= 40; i++) {
-            const tt = i / 40;
-            const inv = 1 - tt;
-            const cx = (mqStart.x + mqEnd.x) / 2 + 0.4;
-            const cy = (mqStart.y + mqEnd.y) / 2 + 0.5;
-            const cz = (mqStart.z + mqEnd.z) / 2;
-            mqArcPts.push(new THREE.Vector3(
-                inv * inv * mqStart.x + 2 * inv * tt * cx + tt * tt * mqEnd.x,
-                inv * inv * mqStart.y + 2 * inv * tt * cy + tt * tt * mqEnd.y,
-                inv * inv * mqStart.z + 2 * inv * tt * cz + tt * tt * mqEnd.z
-            ));
-        }
-        {
-            const arcGeo = new THREE.BufferGeometry().setFromPoints(mqArcPts);
-            mqGroup.add(new THREE.Line(arcGeo, new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.25 })));
-        }
-        const eventPulses = [];
-        for (let p = 0; p < 4; p++) {
-            const pulse = new THREE.Mesh(
-                new THREE.SphereGeometry(0.05, 8, 8),
-                new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.95 })
-            );
-            mqGroup.add(pulse);
-            eventPulses.push({ mesh: pulse, phase: p / 4 });
-        }
-        makeLabel('azure service bus — events', 5, 1.5, -1, 'rgba(52,211,153,0.35)');
-
-        // ─────────────────────────────────────────────
-        //  BOTTOM-LEFT: Database (PostgreSQL / Mongo / Redis)
-        // ─────────────────────────────────────────────
-        const dbGroup = new THREE.Group();
-        scene.add(dbGroup);
-        {
-            const cylGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.9, 16, 1, true);
-            const cylWire = new THREE.LineSegments(
-                new THREE.WireframeGeometry(cylGeo),
-                new THREE.LineBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.3 })
-            );
-            cylWire.position.set(-5.1, -2.7, 0.6);
-            dbGroup.add(cylWire);
-            const capGeo = new THREE.CircleGeometry(0.55, 16);
-            const capWire = new THREE.LineSegments(
-                new THREE.WireframeGeometry(capGeo),
-                new THREE.LineBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.4 })
-            );
-            capWire.position.set(-5.1, -2.25, 0.6);
-            capWire.rotation.x = -Math.PI / 2;
-            dbGroup.add(capWire);
-            const capWire2 = capWire.clone();
-            capWire2.position.y = -3.15;
-            dbGroup.add(capWire2);
-        }
-        makeLabel('postgres / mongo / redis', -5.1, -4.1, 1, 'rgba(251,191,36,0.35)');
-
-        // ─────────────────────────────────────────────
-        //  BOTTOM-RIGHT: Container (Docker / CI-CD)
-        // ─────────────────────────────────────────────
-        const dockerGroup = new THREE.Group();
-        scene.add(dockerGroup);
-        {
-            const boxGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-            const boxWire = new THREE.LineSegments(
-                new THREE.WireframeGeometry(boxGeo),
-                new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35 })
-            );
-            boxWire.position.set(5.2, -2.7, 0.6);
-            dockerGroup.add(boxWire);
-            const inner = new THREE.Mesh(
-                new THREE.SphereGeometry(0.18, 8, 8),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.7 })
-            );
-            inner.position.set(5.2, -2.7, 0.6);
-            dockerGroup.add(inner);
-        }
-        makeLabel('docker — ci/cd', 5.2, -4.1, 1, 'rgba(56,189,248,0.35)');
-
-        // ─────────────────────────────────────────────
-        //  Ambient particles — spread wide to edges
-        // ─────────────────────────────────────────────
-        const particleCount = performanceTier === 'high' ? 220 : performanceTier === 'medium' ? 120 : 60;
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
-        const colorCyan = new THREE.Color(0x67e8f9);
-        const colorViolet = new THREE.Color(0xc084fc);
-        const colorIndigo = new THREE.Color(0x818cf8);
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() * 2 - 1) * 14;
-            positions[i * 3 + 1] = (Math.random() * 2 - 1) * 9;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 10 - 2;
-            const c = [colorCyan, colorViolet, colorIndigo][Math.floor(Math.random() * 3)];
-            colors[i * 3] = c.r;
-            colors[i * 3 + 1] = c.g;
-            colors[i * 3 + 2] = c.b;
-        }
-        const pGeo = new THREE.BufferGeometry();
-        pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        pGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        const pMat = new THREE.PointsMaterial({
-            size: 0.035,
-            vertexColors: true,
+        const fieldGeo = new THREE.BufferGeometry();
+        fieldGeo.setAttribute('position', new THREE.BufferAttribute(fieldPos, 3));
+        fieldGeo.setAttribute('aSize', new THREE.BufferAttribute(fieldSize, 1));
+        fieldGeo.setAttribute('aPhase', new THREE.BufferAttribute(fieldPhase, 1));
+        const fieldMat = new THREE.ShaderMaterial({
+            vertexShader: DATA_FIELD_VERT,
+            fragmentShader: DATA_FIELD_FRAG,
+            uniforms: {
+                uTime: { value: 0 },
+                uPixelRatio: { value: renderer.getPixelRatio() },
+                uColorA: { value: new THREE.Color(INDIGO) },
+                uColorB: { value: new THREE.Color(CYAN) },
+            },
             transparent: true,
-            opacity: 0.4,
-            blending: THREE.AdditiveBlending,
             depthWrite: false,
+            blending: THREE.AdditiveBlending,
         });
-        const stars = new THREE.Points(pGeo, pMat);
-        scene.add(stars);
+        const field = new THREE.Points(fieldGeo, fieldMat);
+        scene.add(field);
 
-        // ─────────────────────────────────────────────
-        //  Perspective grid floor
-        // ─────────────────────────────────────────────
-        const grid = new THREE.GridHelper(30, 30, 0x67e8f9, 0x1e293b);
+        // ── Horizon grid ──────────────────────────────────────────────────
+        const grid = new THREE.GridHelper(80, 40, 0x1e3a5f, 0x0f172a);
         grid.material.transparent = true;
-        grid.material.opacity = 0.08;
-        grid.position.y = -3.4;
+        grid.material.opacity = 0.18;
+        grid.material.depthWrite = false;
+        grid.position.y = -7.5;
         scene.add(grid);
 
-        // ─────────────────────────────────────────────
-        //  Interaction state
-        // ─────────────────────────────────────────────
-        let mouseX = 0, mouseY = 0;
-        let targetRotX = 0, targetRotY = 0;
-        /** @param {MouseEvent} e */
+        // ── Interaction ───────────────────────────────────────────────────
+        let mouseX = 0, mouseY = 0, smX = 0, smY = 0;
         const onMouseMove = (e) => {
             mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
             mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
         };
         window.addEventListener('mousemove', onMouseMove);
 
-        let scrollOffset = 0;
+        let scrollRatio = 0;
         const onScroll = () => {
-            scrollOffset = window.scrollY;
+            const max = document.documentElement.scrollHeight - window.innerHeight;
+            scrollRatio = max > 0 ? window.scrollY / max : 0;
         };
         window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
 
         const onResize = () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             composer.setSize(window.innerWidth, window.innerHeight);
+            fieldMat.uniforms.uPixelRatio.value = renderer.getPixelRatio();
         };
         window.addEventListener('resize', onResize);
 
-        // ─────────────────────────────────────────────
-        //  Animation loop
-        // ─────────────────────────────────────────────
+        // ── Animation ─────────────────────────────────────────────────────
         const clock = new THREE.Clock();
-        /** @type {number} */
         let animId = 0;
+        let smoothScroll = 0;
+        const target = new THREE.Vector3();
+        const spokeArr = spokeGeo.attributes.position.array;
+
         const animate = () => {
-            const dt = clock.getDelta();
+            const dt = Math.min(clock.getDelta(), 0.05);
             const t = clock.elapsedTime;
 
-            // Microservices — breathing + leader pulse
-            meshNodes.forEach((node, i) => {
-                node.rotation.x += dt * 0.3;
-                node.rotation.y += dt * 0.2;
-                if (i === 0) node.scale.setScalar(1 + Math.sin(t * 1.6) * 0.2);
+            // core
+            coreOuter.rotation.y += dt * 0.12;
+            coreOuter.rotation.x += dt * 0.05;
+            coreMid.rotation.y -= dt * 0.2;
+            coreMid.rotation.z += dt * 0.08;
+            const breathe = 1 + Math.sin(t * 1.3) * 0.12;
+            coreGlow.scale.setScalar(breathe);
+            coreHalo.scale.setScalar(1 + Math.sin(t * 1.3 + 0.6) * 0.25);
+            coreHalo.material.opacity = 0.06 + Math.sin(t * 1.3) * 0.03;
+
+            // rings + nodes
+            ringGroups.forEach(({ group, def }) => { group.rotation.y += dt * def.speed; });
+            nodes.forEach(({ mesh }, i) => {
+                mesh.rotation.x += dt * 0.4;
+                mesh.rotation.y += dt * 0.3;
+                mesh.scale.setScalar(1 + Math.sin(t * 1.1 + i * 0.7) * 0.15);
             });
 
-            // LLM tokens flow input → hidden → output
-            tokens.forEach((tok) => {
-                const progress = (t * 0.18 + tok.phase) % 1;
-                const layerPath = tok.path;
-                let pos = null;
-                if (progress < 0.45) {
-                    pos = inputPositions[layerPath].clone().lerp(hiddenPositions[layerPath], progress / 0.45);
-                } else if (progress < 0.85) {
-                    pos = hiddenPositions[layerPath].clone().lerp(outputPositions[layerPath], (progress - 0.45) / 0.4);
-                }
-                if (pos) {
-                    tok.mesh.position.copy(pos);
-                    tok.mesh.visible = true;
-                } else {
-                    tok.mesh.visible = false;
-                }
+            // spokes follow the nodes
+            scene.updateMatrixWorld();
+            coreGlow.getWorldPosition(coreWorld);
+            nodes.forEach((node, i) => {
+                nodeWorld(node, worldTmp);
+                system.worldToLocal(worldTmp);
+                const o = i * 6;
+                spokeArr[o] = worldTmp.x; spokeArr[o + 1] = worldTmp.y; spokeArr[o + 2] = worldTmp.z;
+                spokeArr[o + 3] = 0; spokeArr[o + 4] = 0; spokeArr[o + 5] = 0;
             });
-            llmNodes.forEach((n, i) => {
-                n.mesh.scale.setScalar(1 + Math.sin(t * 1.2 + i * 0.4) * 0.15);
-            });
+            spokeGeo.attributes.position.needsUpdate = true;
 
-            // Cloud — slow counter-rotation
-            cloudGroup.children.forEach((c, i) => {
-                c.rotation.y += dt * 0.12 * (i % 2 === 0 ? 1 : -1);
-            });
-
-            // Message queue — pulses along the arc
-            eventPulses.forEach((pulse) => {
-                const progress = (t * 0.25 + pulse.phase) % 1;
-                const idx = Math.floor(progress * (mqArcPts.length - 1));
-                const frac = progress * (mqArcPts.length - 1) - idx;
-                const p0 = mqArcPts[idx];
-                const p1 = mqArcPts[Math.min(idx + 1, mqArcPts.length - 1)];
-                pulse.mesh.position.lerpVectors(p0, p1, frac);
-                pulse.mesh.scale.setScalar(1 + Math.sin(t * 3) * 0.2);
+            // pulses
+            pulses.forEach((p) => {
+                p.t += dt * p.speed;
+                if (p.t >= 1) spawnPulse(p);
+                // keep the curve endpoint glued to the moving node
+                nodeWorld(p.node, worldTmp);
+                if (p.toCore) { p.curve.v0.copy(worldTmp); p.curve.v2.copy(coreWorld); }
+                else { p.curve.v0.copy(coreWorld); p.curve.v2.copy(worldTmp); }
+                p.curve.getPoint(p.t, p.mesh.position);
+                const fade = Math.sin(p.t * Math.PI);
+                p.mesh.scale.setScalar(0.6 + fade * 0.8);
+                p.mesh.material.opacity = 0.3 + fade * 0.7;
             });
 
-            // Database — slow rotation
-            dbGroup.children.forEach((c) => {
-                c.rotation.y += dt * 0.25;
-            });
+            // data field
+            fieldMat.uniforms.uTime.value = t;
+            field.rotation.y = t * 0.008;
 
-            // Container — rotation + inner pulse
-            dockerGroup.children.forEach((c, i) => {
-                c.rotation.y += dt * 0.2;
-                if (i === 1) c.scale.setScalar(1 + Math.sin(t * 1.5) * 0.15);
-            });
+            // camera: orbit with scroll, drift with mouse
+            smoothScroll += (scrollRatio - smoothScroll) * 0.04;
+            smX += (mouseX - smX) * 0.03;
+            smY += (mouseY - smY) * 0.03;
+            const azimuth = -0.3 + smoothScroll * 1.7 + smX * 0.15;
+            const elevation = 0.3 - smoothScroll * 0.16 - smY * 0.1;
+            const dist = 15 - smoothScroll * 2;
+            camera.position.set(
+                system.position.x + Math.sin(azimuth) * Math.cos(elevation) * dist,
+                system.position.y + Math.sin(elevation) * dist + 0.6,
+                system.position.z + Math.cos(azimuth) * Math.cos(elevation) * dist
+            );
+            // Look left of the system so the core sits in the right third of the
+            // screen and drifts further out as the reader scrolls into dense text.
+            target.set(system.position.x - 4.2 - smoothScroll * 1.6, system.position.y - 0.4, system.position.z);
+            camera.lookAt(target);
 
-            // Particles drift
-            stars.rotation.y += dt * 0.01;
-
-            // Camera parallax (subtle)
-            targetRotX += (mouseY * 0.4 - targetRotX) * 0.03;
-            targetRotY += (mouseX * 0.7 - targetRotY) * 0.03;
-            camera.position.x += (targetRotY * 1.1 - camera.position.x) * 0.04;
-            camera.position.y += (2.4 - targetRotX * 0.9 - camera.position.y) * 0.04;
-            camera.lookAt(0, 0, 0);
-
-            // Scroll tilt + bloom fade for readability
-            if (!prefersReducedMotion) {
-                const scrollNorm = Math.min(scrollOffset / window.innerHeight, 3);
-                scene.rotation.x = THREE.MathUtils.lerp(scene.rotation.x, scrollNorm * 0.035, 0.02);
-                bloomPass.strength = 0.25 - Math.min(scrollNorm * 0.04, 0.1);
-            }
+            // keep glow modest once the reader is deep into the text
+            bloomPass.strength = 0.55 - Math.min(smoothScroll, 1) * 0.15;
 
             composer.render();
             if (!prefersReducedMotion) animId = requestAnimationFrame(animate);
@@ -465,7 +369,6 @@ export default function ThreeScene() {
         animId = requestAnimationFrame(animate);
         if (prefersReducedMotion) composer.render();
 
-        // Cleanup
         return () => {
             cancelAnimationFrame(animId);
             window.removeEventListener('mousemove', onMouseMove);
@@ -482,9 +385,7 @@ export default function ThreeScene() {
             });
             composer.dispose?.();
             renderer.dispose();
-            if (renderer.domElement.parentNode) {
-                renderer.domElement.parentNode.removeChild(renderer.domElement);
-            }
+            if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
         };
     }, []);
 

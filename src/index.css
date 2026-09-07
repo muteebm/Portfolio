@@ -6,6 +6,55 @@ html {
     scroll-behavior: smooth;
 }
 
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #030712;
+    color: #e2e8f0;
+}
+
+.font-display {
+    font-family: 'Bricolage Grotesque', 'Inter', sans-serif;
+    font-optical-sizing: auto;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Readability scrim: darkens the left/centre where copy lives, leaves the right edge open for the scene */
+.content-scrim {
+    background:
+        linear-gradient(90deg, rgba(3, 7, 18, 0.82) 0%, rgba(3, 7, 18, 0.62) 40%, rgba(3, 7, 18, 0.28) 75%, rgba(3, 7, 18, 0.12) 100%),
+        radial-gradient(ellipse 70% 55% at 50% 45%, rgba(3, 7, 18, 0.35), transparent 70%);
+}
+
+/* Glass surface used by cards so text always sits on a dark, consistent base */
+.glass-card {
+    background: rgba(8, 13, 28, 0.82);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Marquee for the hero stack strip */
+@keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+    animation: marquee 38s linear infinite;
+}
+
+.animate-marquee:hover {
+    animation-play-state: paused;
+}
+
+/* Slow conic spin for availability ring */
+@keyframes spinSlow {
+    to { transform: rotate(360deg); }
+}
+
 @keyframes audioEq {
     from { transform: scaleY(0.4); }
     to { transform: scaleY(1); }
@@ -16,8 +65,20 @@ html {
     100% { background-position: -200% 0; }
 }
 
-@keyframes borderSpin {
-    to { transform: rotate(360deg); }
+/* Rotating conic border without rotating the element itself */
+@property --border-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+
+@keyframes borderAngle {
+    to { --border-angle: 360deg; }
+}
+
+.animate-borderAngle {
+    --border-angle: 0deg;
+    animation: borderAngle 6s linear infinite;
 }
 
 @keyframes glitchJitter {

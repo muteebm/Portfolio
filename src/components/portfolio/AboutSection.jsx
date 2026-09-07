@@ -1,120 +1,76 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
+import { profile, stats } from '@/data/site';
 
-function CountUp({ target, suffix = '', duration = 2000 }) {
+function CountUp({ target, suffix = '', duration = 1600 }) {
     const [count, setCount] = useState(0);
-    const ref = useRef();
+    const ref = useRef(null);
     const inView = useInView(ref, { once: true });
 
     useEffect(() => {
         if (!inView) return;
-        let start = 0;
-        const safeDuration = Math.max(duration, 100);
-        const step = target / (safeDuration / 16);
-        const timer = setInterval(() => {
-            start += step;
-            if (start >= target) { setCount(target); clearInterval(timer); }
-            else setCount(Math.floor(start));
-        }, 16);
-        return () => clearInterval(timer);
+        const start = performance.now();
+        let raf;
+        const tick = (now) => {
+            const t = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - t, 3);
+            setCount(Math.round(target * eased));
+            if (t < 1) raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
     }, [inView, target, duration]);
 
     return <span ref={ref}>{count}{suffix}</span>;
 }
 
-const terminalLines = [
-    { delay: 0, prompt: '$', cmd: 'whoami', out: 'Muteeb Matloob — Senior Software Engineer' },
-    { delay: 0.6, prompt: '$', cmd: 'cat vision.txt', out: 'Architect intelligent systems bridging scalable microservices with autonomous LLM workflows.' },
-    { delay: 1.3, prompt: '$', cmd: 'ls ./superpowers', out: 'agentic-ai/   microservices/   cloud-native/   full-stack/' },
-    { delay: 2.0, prompt: '$', cmd: 'echo $STATUS', out: '🟢 Available · Open to Remote & Relocation' },
-];
-
-const stats = [
-    { label: 'Years Experience', value: 6, suffix: '+' },
-    { label: 'Projects Shipped', value: 15, suffix: '+' },
-    { label: 'Daily Events Handled', value: 1, suffix: 'M+' },
-    { label: 'Users Acquired', value: 10, suffix: 'K+' },
-];
-
+/**
+ * AboutSection — a short editorial band: the vision statement on the left,
+ * four resume-backed numbers on the right.
+ */
 export default function AboutSection() {
     return (
-        <section id="about" className="relative py-32 bg-transparent overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_50%,rgba(139,92,246,0.04),transparent)]" />
-
-            <div className="max-w-6xl mx-auto px-6">
-                <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}>
-                    <p className="text-xs uppercase tracking-[0.3em] font-mono mb-3" style={{ color: '#67e8f9' }}>// about</p>
-                    <h2 className="text-4xl sm:text-5xl font-black text-white mb-16 tracking-tight">
-                        I build things that<br />
-                        <span className="text-slate-400">think & scale.</span>
+        <section id="about" className="relative py-24 sm:py-28 bg-transparent">
+            <div className="absolute top-0 inset-x-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(99,179,237,0.15), transparent)' }} />
+            <div className="max-w-7xl mx-auto px-6 sm:px-12 grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                <motion.div
+                    className="lg:col-span-6"
+                    initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
+                >
+                    <p className="text-xs uppercase tracking-[0.3em] font-mono mb-5" style={{ color: '#67e8f9' }}>// about</p>
+                    <h2 className="font-display text-3xl sm:text-5xl font-bold text-white tracking-tight leading-[1.05] mb-6">
+                        I build systems that <span className="text-slate-400">reason, scale and ship.</span>
                     </h2>
+                    <p className="text-slate-200 text-base sm:text-lg leading-relaxed max-w-xl">
+                        {profile.vision}
+                    </p>
+                    <p className="text-slate-400 text-sm leading-relaxed max-w-xl mt-4 font-mono">
+                        Currently leading the agentic side of Sofy&apos;s testing platform — from LangChain workflows and MCP
+                        servers to the Node.js microservices and Azure messaging underneath them.
+                    </p>
                 </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                    {/* Terminal */}
-                    <motion.div
-                        className="rounded-2xl overflow-hidden"
-                        style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,179,237,0.1)', backdropFilter: 'blur(12px)' }}
-                        initial={{ opacity: 0, x: -40 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.7 }}
-                    >
-                        {/* Terminal header */}
-                        <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: 'rgba(99,179,237,0.08)', background: 'rgba(15,23,42,0.5)' }}>
-                            <div className="w-3 h-3 rounded-full bg-red-500/70" />
-                            <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
-                            <div className="w-3 h-3 rounded-full bg-green-500/70" />
-                            <span className="ml-3 text-xs text-slate-600 font-mono">muteeb@portfolio ~ zsh</span>
-                        </div>
-                        <div className="p-5 space-y-4 font-mono text-sm min-h-[280px]">
-                            {terminalLines.map((line, i) => (
-                                <motion.div key={i} initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }}
-                                    viewport={{ once: true }} transition={{ delay: line.delay, duration: 0.4 }}>
-                                    <div className="flex gap-2">
-                                        <span style={{ color: '#10b981' }}>➜</span>
-                                        <span style={{ color: '#67e8f9' }}>~</span>
-                                        <span className="text-slate-300">{line.cmd}</span>
-                                    </div>
-                                    <div className="mt-1 ml-6 text-slate-500">{line.out}</div>
-                                </motion.div>
-                            ))}
-                            <motion.div
-                                className="flex gap-2 mt-2"
-                                initial={{ opacity: 0 }}
-                                whileInView={{ opacity: 1 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: 2.6 }}
-                            >
-                                <span style={{ color: '#10b981' }}>➜</span>
-                                <span style={{ color: '#67e8f9' }}>~</span>
-                                <span className="inline-block w-2 h-4 bg-cyan-400 animate-pulse ml-1" />
-                            </motion.div>
-                        </div>
-                    </motion.div>
-
-                    {/* Stats grid */}
-                    <div className="grid grid-cols-2 gap-4 content-start">
-                        {stats.map((s, i) => (
-                            <motion.div
-                                key={s.label}
-                                className="rounded-2xl p-6 relative overflow-hidden group cursor-default"
-                                style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.06)' }}
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: i * 0.1 }}
-                                whileHover={{ borderColor: 'rgba(99,179,237,0.2)', y: -2 }}
-                            >
-                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    style={{ background: 'radial-gradient(circle at 50% 0%, rgba(99,179,237,0.05), transparent 70%)' }} />
-                                <div className="text-4xl font-black text-white mb-1">
-                                    <CountUp target={s.value} suffix={s.suffix} />
-                                </div>
-                                <div className="text-xs text-slate-500 font-mono uppercase tracking-widest">{s.label}</div>
-                            </motion.div>
-                        ))}
-                    </div>
+                <div className="lg:col-span-6 grid grid-cols-2 gap-px rounded-2xl overflow-hidden"
+                    style={{ background: 'rgba(148,163,184,0.08)' }}>
+                    {stats.map((s, i) => (
+                        <motion.div
+                            key={s.label}
+                            className="p-6 sm:p-8 relative group"
+                            style={{ background: 'rgba(3,7,18,0.85)' }}
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: i * 0.08, duration: 0.5 }}
+                        >
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                                style={{ background: 'radial-gradient(circle at 30% 0%, rgba(99,179,237,0.08), transparent 70%)' }} />
+                            <div className="font-display text-4xl sm:text-5xl font-bold text-white tracking-tight mb-2">
+                                <CountUp target={s.value} suffix={s.suffix} />
+                            </div>
+                            <div className="text-xs text-slate-300 font-medium mb-1">{s.label}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{s.note}</div>
+                        </motion.div>
+                    ))}
                 </div>
             </div>
         </section>

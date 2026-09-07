@@ -1,27 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Command, FileText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-
-const portfolioLinks = [
-    { label: 'about', href: '#about' },
-    { label: 'experience', href: '#experience' },
-    { label: 'projects', href: '#projects' },
-    { label: 'skills', href: '#skills' },
-    { label: 'contact', href: '#contact' },
-];
+import { navSections, profile, links } from '@/data/site';
 
 // Smooth-scroll to a section without triggering route navigation / refresh
-const scrollToSection = (e, href) => {
+const scrollToSection = (e, id) => {
     e.preventDefault();
-    const id = href.replace('#', '');
     const el = document.getElementById(id);
     if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // Update URL hash without scrolling/jumping
         history.replaceState(null, '', `#${id}`);
     }
 };
+
+export const openCommandPalette = () => window.dispatchEvent(new CustomEvent('open-command-palette'));
 
 export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
@@ -29,17 +22,15 @@ export default function Navbar() {
     const [activeSection, setActiveSection] = useState('');
     const location = useLocation();
     const isBlog = location.pathname.startsWith('/Blog');
-    const navLinks = isBlog ? [] : portfolioLinks;
+    const navLinks = isBlog ? [] : navSections;
 
     useEffect(() => {
         const onScroll = () => {
             setScrolled(window.scrollY > 60);
-            // Track active section for highlight
             const sections = document.querySelectorAll('section[id]');
             let current = '';
             sections.forEach((sec) => {
-                const top = sec.getBoundingClientRect().top;
-                if (top <= 120) current = sec.id;
+                if (sec.getBoundingClientRect().top <= 120) current = sec.id;
             });
             setActiveSection(current);
         };
@@ -61,29 +52,37 @@ export default function Navbar() {
                 animate={{ y: 0 }}
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             >
-                <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <Link to="/Portfolio" className="font-black text-xl tracking-tighter text-white font-mono">
-                        MM<span style={{ color: '#67e8f9' }}>_</span>
+                <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <Link to="/Portfolio" className="font-display font-extrabold text-xl tracking-tighter text-white">
+                        MM<span style={{ color: '#67e8f9' }}>.</span>
                     </Link>
 
                     {/* Desktop */}
                     <div className="hidden md:flex items-center gap-6">
                         {navLinks.map((l) => (
-                            <a key={l.label} href={l.href} onClick={(e) => scrollToSection(e, l.href)}
+                            <a key={l.id} href={`#${l.id}`} onClick={(e) => scrollToSection(e, l.id)}
                                 className="text-sm font-mono text-slate-500 hover:text-white transition-colors tracking-wide"
-                                style={activeSection === l.href.replace('#', '') ? { color: '#67e8f9' } : {}}>
+                                style={activeSection === l.id ? { color: '#67e8f9' } : {}}>
                                 <span style={{ color: '#67e8f9' }}>./</span>{l.label}
                             </a>
                         ))}
                         <Link to="/Blog"
-                            className="text-sm font-mono transition-colors"
-                            style={{ color: isBlog ? '#67e8f9' : '#64748b' }}
-                            onMouseEnter={e => e.currentTarget.style.color = '#e2e8f0'}
-                            onMouseLeave={e => e.currentTarget.style.color = isBlog ? '#67e8f9' : '#64748b'}>
+                            className="text-sm font-mono transition-colors hover:text-white"
+                            style={{ color: isBlog ? '#67e8f9' : '#64748b' }}>
                             <span style={{ color: '#67e8f9' }}>./</span>blog
                         </Link>
-                        <a href="mailto:muteebmatloobm@gmail.com"
-                            className="px-4 py-2 rounded-lg text-xs font-mono font-semibold transition-all"
+                        <a href={profile.resumeUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-sm font-mono text-slate-500 hover:text-white transition-colors">
+                            <FileText className="w-3.5 h-3.5" /> resume
+                        </a>
+                        <button onClick={openCommandPalette}
+                            className="hidden lg:inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono text-slate-500 hover:text-slate-200 transition-colors"
+                            style={{ border: '1px solid rgba(148,163,184,0.15)' }}
+                            aria-label="Open command palette">
+                            <Command className="w-3.5 h-3.5" /> K
+                        </button>
+                        <a href={links.email}
+                            className="px-4 py-2 rounded-lg text-xs font-mono font-semibold transition-all hover:brightness-125"
                             style={{ background: 'rgba(6,182,212,0.1)', color: '#67e8f9', border: '1px solid rgba(6,182,212,0.2)' }}>
                             hire_me()
                         </a>
@@ -101,12 +100,12 @@ export default function Navbar() {
             <AnimatePresence>
                 {mobileOpen && (
                     <motion.div
-                        className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-8"
+                        className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-7"
                         style={{ background: 'rgba(3,7,18,0.97)', backdropFilter: 'blur(20px)' }}
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                         {navLinks.map((l, i) => (
-                            <motion.a key={l.label} href={l.href}
-                                onClick={(e) => { scrollToSection(e, l.href); setMobileOpen(false); }}
+                            <motion.a key={l.id} href={`#${l.id}`}
+                                onClick={(e) => { scrollToSection(e, l.id); setMobileOpen(false); }}
                                 className="text-2xl font-mono text-slate-300 hover:text-white"
                                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.06 }}>
@@ -114,11 +113,19 @@ export default function Navbar() {
                             </motion.a>
                         ))}
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: navLinks.length * 0.06 }}>
+                            transition={{ delay: navLinks.length * 0.06 }} className="flex flex-col items-center gap-7">
                             <Link to="/Blog" onClick={() => setMobileOpen(false)}
                                 className="text-2xl font-mono text-slate-300 hover:text-white">
                                 <span style={{ color: '#67e8f9' }}>./</span>blog
                             </Link>
+                            <a href={profile.resumeUrl} target="_blank" rel="noopener noreferrer"
+                                className="text-2xl font-mono text-slate-300 hover:text-white">
+                                <span style={{ color: '#67e8f9' }}>./</span>resume
+                            </a>
+                            <a href={links.email}
+                                className="mt-2 px-6 py-3 rounded-full text-sm font-semibold bg-white text-[#030712]">
+                                Hire me
+                            </a>
                         </motion.div>
                     </motion.div>
                 )}

@@ -6,10 +6,12 @@ import HiddenTerminal from '../components/portfolio/effects/HiddenTerminal';
 import ThreeScene from '../components/portfolio/effects/ThreeScene.jsx';
 import Preloader from '../components/portfolio/Preloader';
 import Navbar from '../components/portfolio/Navbar';
+import CommandPalette from '../components/portfolio/CommandPalette';
 import HeroSection from '../components/portfolio/HeroSection';
 import AboutSection from '../components/portfolio/AboutSection';
-import ExperienceSection from '../components/portfolio/ExperienceSection';
+import FeaturedWork from '../components/portfolio/FeaturedWork';
 import ProjectsSection from '../components/portfolio/ProjectsSection';
+import ExperienceSection from '../components/portfolio/ExperienceSection';
 import SkillsSection from '../components/portfolio/SkillsSection';
 import ContactSection from '../components/portfolio/ContactSection';
 import { useEasterEggs } from '@/hooks/use-easter-eggs';
@@ -20,28 +22,28 @@ export default function Portfolio() {
     useScrollOrchestrator();
 
     return (
-        <div className="bg-[#030712] min-h-screen relative" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
+        <div className="bg-[#030712] min-h-screen relative">
             {/* Fixed full-viewport 3D backdrop — persists across all sections */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <ThreeScene />
             </div>
-            {/* Depth vignette so content stays readable */}
-            <div className="fixed inset-0 z-0 pointer-events-none"
-                style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(3,7,18,0.3), transparent 60%), radial-gradient(ellipse 60% 50% at 50% 100%, rgba(3,7,18,0.5), transparent 70%)' }}
-            />
+            {/* Readability scrim so content stays legible over the scene */}
+            <div className="fixed inset-0 z-0 pointer-events-none content-scrim" />
 
             <CustomCursor />
             <GrainOverlay />
             <AudioSystem />
             <HiddenTerminal />
+            <CommandPalette />
             <Preloader />
             <Navbar />
 
             <main className="relative z-[2]">
                 <HeroSection />
                 <AboutSection />
-                <ExperienceSection />
+                <FeaturedWork />
                 <ProjectsSection />
+                <ExperienceSection />
                 <SkillsSection />
                 <ContactSection />
             </main>

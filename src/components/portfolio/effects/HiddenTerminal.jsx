@@ -1,68 +1,66 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { profile, links, stack, experience, featured, education } from '@/data/site';
 
+// All terminal content derives from src/data/site.js so it can never drift from the page.
 const COMMANDS = {
     whoami: [
-        '> muteeb',
-        '> Senior Software Engineer · LLM Systems Architect',
-        '> Agentic Workflow Builder · Microservices Craftsman',
+        `> ${profile.name.toLowerCase().replace(' ', '')}`,
+        `> ${profile.title} @ ${profile.company}`,
+        `> ${profile.headline}`,
     ],
     ls: [
-        './ai/          → llm-agentic-workflows/',
-        './backend/     → python-node-microservices/',
-        './cloud/       → azure-aws-docker/',
-        './frontend/    → react-angular-rn/',
-        './skills/      → see `cat skills.md`',
+        './work/         → sofy-web-agent/  headroom/  why-blame/',
+        './experience/   → sofy-ai/  skynners/',
+        './stack/        → see `cat skills.md`',
+        './contact/      → see `cat contact.md`',
     ],
     cat: {
         'skills.md': [
             '# skills.md',
             '',
-            '## AI & Agentic',
-            '  LLMs · LangChain · Agentic Workflows · Playwright · MCP Server',
-            '',
-            '## Backend & APIs',
-            '  Python · Flask · FastAPI · Node.js · Express · TypeScript · REST',
-            '',
-            '## Cloud & Infra',
-            '  Azure · AWS · GCP · Docker · Microservices · CI/CD',
-            '',
-            '## Frontend',
-            '  React · Angular · React Native · State Management',
-            '',
-            '## Databases',
-            '  PostgreSQL · MongoDB · Redis · MS SQL · Supabase',
+            ...stack.flatMap(g => [`## ${g.title}`, `  ${g.items.join(' · ')}`, '']),
         ],
         'experience.md': [
             '# experience.md',
             '',
-            '## Sofy.ai — Senior SWE / Team Lead (Jul 2022 → Present)',
-            '  · Sofy Web Agent — autonomous LLM system (Python, LangChain, Playwright)',
-            '  · MCP server for cross-agent capability sharing',
-            '  · Monolith → microservices migration (Strangler Fig)',
-            '  · Azure Service Bus — 1M+ daily events',
+            ...experience.flatMap(exp => exp.roles.flatMap(role => [
+                `## ${exp.company} — ${role.title} (${role.period})`,
+                ...role.bullets.slice(0, 3).map(b => `  · ${b.length > 110 ? b.slice(0, 107) + '…' : b}`),
+                '',
+            ])),
+            `## Education`,
+            `  ${education.degree} · ${education.shortSchool} · ${education.period}`,
+        ],
+        'projects.md': [
+            '# projects.md',
             '',
-            '## Skynners — Co-Founder (2017 → 2020)',
-            '  · 15+ enterprise software solutions',
-            '  · AAB app — 10K+ users in 3 months',
-            '  · AWS + Docker · 99.9% uptime',
+            ...featured.flatMap(f => [
+                `## ${f.title}`,
+                `  ${f.stack.join(' · ')}`,
+                ...f.links.map(l => `  → ${l.href}`),
+                '',
+            ]),
         ],
         'contact.md': [
             '# contact.md',
             '',
-            'email:    muteebmatloobm@gmail.com',
-            'phone:    +92 311 1080422',
-            'github:   github.com/muteebm',
-            'linkedin: linkedin.com/in/muteebm',
-            'website:  muteeb.space',
+            `email:    ${profile.email}`,
+            `phone:    ${profile.phone}`,
+            `github:   ${links.github.replace('https://', '')}`,
+            `linkedin: ${links.linkedin.replace('https://www.', '')}`,
+            `upwork:   ${links.upwork.replace('https://www.', '')}`,
+            `resume:   ${window.location.origin}${profile.resumeUrl}`,
+            `status:   ${profile.availability}`,
         ],
     },
     help: [
         'Available commands:',
         '  whoami          — who are you?',
         '  ls              — list directories',
-        '  cat <file>      — view a file (skills.md, experience.md, contact.md)',
+        '  cat <file>      — view a file (skills.md, experience.md, projects.md, contact.md)',
+        '  open <target>   — github | linkedin | upwork | resume | sofy',
         '  neofetch        — system info',
         '  date            — current date/time',
         '  echo <text>     — print text',
@@ -73,13 +71,23 @@ const COMMANDS = {
     neofetch: [
         '        ████████      muteeb@portfolio',
         '      ██        ██    ───────────────────',
-        '    ██  ████  ████    OS:      Immersive Portfolio v3.0',
-        '    ██  ████  ████    Host:    Muteeb Matloob',
-        '    ██    ██    ██    Uptime:  6+ years experience',
+        '    ██  ████  ████    OS:      Portfolio v4.0 (flagship)',
+        `    ██  ████  ████    Host:    ${profile.name}`,
+        `    ██    ██    ██    Uptime:  ${profile.yearsExperience}+ years engineering`,
         '      ██  ██  ██      Shell:   zsh (web)',
-        '        ████████      CPU:     Neural Network Co-processor',
-        '                    GPU:     WebGL Wireframe Engine',
+        '        ████████      CPU:     LangChain · MCP · Node.js',
+        '                    GPU:     Three.js WebGL backdrop',
+        `                    Locale:  ${profile.location} (${profile.timezone})`,
     ],
+};
+
+const OPEN_TARGETS = {
+    github: links.github,
+    linkedin: links.linkedin,
+    upwork: links.upwork,
+    resume: profile.resumeUrl,
+    sofy: links.sofy,
+    email: links.email,
 };
 
 /**
@@ -89,7 +97,7 @@ const COMMANDS = {
 export default function HiddenTerminal() {
     const [open, setOpen] = useState(false);
     const [history, setHistory] = useState([
-        'MUTEEB OS v3.0 — immersive build',
+        'MUTEEB OS v4.0 — flagship build',
         'Type `help` to see available commands. Press ESC or type `exit` to close.',
         '',
     ]);
@@ -98,16 +106,19 @@ export default function HiddenTerminal() {
     const bodyRef = useRef(null);
     const openRef = useRef(open);
 
-    // Keep open state in sync for the escape handler
     useEffect(() => {
         openRef.current = open;
         if (open) setTimeout(() => inputRef.current?.focus(), 50);
     }, [open]);
 
-    // Global backtick key to toggle
+    // Global backtick key to toggle — ignored while typing in any other field
     useEffect(() => {
         const onKey = (e) => {
-            if (e.key === '`' || e.key === '~') {
+            const t = e.target;
+            const typingElsewhere = t && t !== inputRef.current && (
+                t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable
+            );
+            if ((e.key === '`' || e.key === '~') && !typingElsewhere) {
                 e.preventDefault();
                 setOpen(o => !o);
             }
@@ -119,7 +130,6 @@ export default function HiddenTerminal() {
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
-    // Auto-scroll to bottom on history change
     useEffect(() => {
         if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
     }, [history, open]);
@@ -172,16 +182,26 @@ export default function HiddenTerminal() {
                 break;
             case 'github':
             case 'linkedin':
+            case 'upwork':
+            case 'resume':
             case 'email':
-                output = ['Try the contact section ↓'];
+                window.open(OPEN_TARGETS[name], '_blank', 'noopener,noreferrer');
+                output = [`Opening ${name}…`];
                 break;
             case 'projects':
-                output = ['Scroll down to #projects — real projects are on the way!'];
+                output = COMMANDS.cat['projects.md'];
                 break;
             case 'open':
-            case 'start':
-                output = [`Opening ${args[0] || 'nothing'}... (not implemented here)`];
+            case 'start': {
+                const target = OPEN_TARGETS[args[0]];
+                if (target) {
+                    window.open(target, '_blank', 'noopener,noreferrer');
+                    output = [`Opening ${args[0]}…`];
+                } else {
+                    output = [`Unknown target: ${args[0] || '(empty)'}`, 'Available: ' + Object.keys(OPEN_TARGETS).join(', ')];
+                }
                 break;
+            }
             default:
                 output = [`command not found: ${name}`, 'Type `help` for available commands.'];
         }
@@ -206,10 +226,8 @@ export default function HiddenTerminal() {
                     exit={{ opacity: 0 }}
                     onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
                 >
-                    {/* Backdrop blur */}
                     <div className="absolute inset-0" style={{ background: 'rgba(3,7,18,0.75)', backdropFilter: 'blur(12px)' }} />
 
-                    {/* Terminal window */}
                     <motion.div
                         className="relative w-full max-w-2xl rounded-2xl overflow-hidden font-mono"
                         style={{
@@ -222,7 +240,6 @@ export default function HiddenTerminal() {
                         exit={{ y: 20, scale: 0.98, opacity: 0 }}
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                     >
-                        {/* Header */}
                         <div className="flex items-center gap-2 px-4 py-3 border-b"
                             style={{ background: 'rgba(15,23,42,0.6)', borderColor: 'rgba(99,179,237,0.1)' }}>
                             <div className="w-3 h-3 rounded-full bg-red-500/70" />
@@ -238,7 +255,6 @@ export default function HiddenTerminal() {
                             </button>
                         </div>
 
-                        {/* Output */}
                         <div
                             ref={bodyRef}
                             className="p-4 h-[320px] sm:h-[380px] overflow-y-auto text-xs sm:text-sm leading-relaxed"
@@ -250,15 +266,12 @@ export default function HiddenTerminal() {
                             )}
                             {history.map((line, i) => {
                                 const isCmd = line.startsWith('$ ');
-                                const isFileHeading = line.startsWith('# ');
+                                const isFileHeading = line.startsWith('# ') || line.startsWith('## ');
                                 return (
                                     <div
                                         key={i}
                                         className="whitespace-pre-wrap"
-                                        style={{
-                                            color: isCmd ? '#67e8f9' : isFileHeading ? '#c084fc' : '#94a3b8',
-                                            fontFamily: 'monospace',
-                                        }}
+                                        style={{ color: isCmd ? '#67e8f9' : isFileHeading ? '#c084fc' : '#94a3b8' }}
                                     >
                                         {line || '\u00A0'}
                                     </div>
@@ -266,7 +279,6 @@ export default function HiddenTerminal() {
                             })}
                         </div>
 
-                        {/* Input line */}
                         <form onSubmit={onSubmit} className="flex items-center gap-2 px-4 py-3 border-t"
                             style={{ borderColor: 'rgba(99,179,237,0.1)', background: 'rgba(15,23,42,0.4)' }}>
                             <span className="text-green-500 shrink-0">➜</span>
