@@ -30,10 +30,10 @@ body {
 
 /* Glass surface used by cards so text always sits on a dark, consistent base */
 .glass-card {
-    background: rgba(8, 13, 28, 0.82);
+    background: rgba(8, 13, 28, 0.74);
     border: 1px solid rgba(148, 163, 184, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
 }
 
 /* Marquee for the hero stack strip */
