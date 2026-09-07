@@ -32,6 +32,7 @@ const AMBER = 0xfbbf24;
 const DATA_FIELD_VERT = /* glsl */`
     uniform float uTime;
     uniform float uPixelRatio;
+    uniform float uWarp;
     attribute float aSize;
     attribute float aPhase;
     varying float vTwinkle;
@@ -40,8 +41,8 @@ const DATA_FIELD_VERT = /* glsl */`
         p.y += sin(uTime * 0.25 + aPhase) * 0.35;
         p.x += cos(uTime * 0.18 + aPhase * 1.7) * 0.25;
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
-        vTwinkle = 0.55 + 0.45 * sin(uTime * 1.4 + aPhase * 6.2831);
-        gl_PointSize = aSize * uPixelRatio * (95.0 / -mv.z);
+        vTwinkle = (0.55 + 0.45 * sin(uTime * 1.4 + aPhase * 6.2831)) * min(uWarp, 1.6);
+        gl_PointSize = min(aSize * uPixelRatio * uWarp * (95.0 / -mv.z), 16.0 * uPixelRatio);
         gl_Position = projectionMatrix * mv;
     }
 `;
@@ -240,6 +241,7 @@ export default function ThreeScene() {
             uniforms: {
                 uTime: { value: 0 },
                 uPixelRatio: { value: renderer.getPixelRatio() },
+                uWarp: { value: 1 },
                 uColorA: { value: new THREE.Color(INDIGO) },
                 uColorB: { value: new THREE.Color(CYAN) },
             },
@@ -267,9 +269,12 @@ export default function ThreeScene() {
         window.addEventListener('mousemove', onMouseMove);
 
         let scrollRatio = 0;
+        let velocity = 0; // smoothed scroll speed, drives the "warp" feel
         const onScroll = () => {
             const max = document.documentElement.scrollHeight - window.innerHeight;
-            scrollRatio = max > 0 ? window.scrollY / max : 0;
+            const next = max > 0 ? window.scrollY / max : 0;
+            velocity += Math.abs(next - scrollRatio) * 18;
+            scrollRatio = next;
         };
         window.addEventListener('scroll', onScroll, { passive: true });
         onScroll();
@@ -324,9 +329,13 @@ export default function ThreeScene() {
             });
             spokeGeo.attributes.position.needsUpdate = true;
 
-            // pulses
+            // scroll energy: decays every frame, spikes while the reader scrolls
+            velocity *= 0.9;
+            const energy = Math.min(velocity, 1);
+
+            // pulses (traffic speeds up while scrolling)
             pulses.forEach((p) => {
-                p.t += dt * p.speed;
+                p.t += dt * p.speed * (1 + energy * 3);
                 if (p.t >= 1) spawnPulse(p);
                 // keep the curve endpoint glued to the moving node
                 nodeWorld(p.node, worldTmp);
@@ -340,27 +349,35 @@ export default function ThreeScene() {
 
             // data field
             fieldMat.uniforms.uTime.value = t;
-            field.rotation.y = t * 0.008;
+            fieldMat.uniforms.uWarp.value += ((1 + energy * 1.6) - fieldMat.uniforms.uWarp.value) * 0.1;
+            field.rotation.y = t * 0.008 + smoothScroll * 0.6;
 
-            // camera: orbit with scroll, drift with mouse
-            smoothScroll += (scrollRatio - smoothScroll) * 0.04;
+            // camera: fly into the system as the reader scrolls
+            smoothScroll += (scrollRatio - smoothScroll) * 0.05;
             smX += (mouseX - smX) * 0.03;
             smY += (mouseY - smY) * 0.03;
-            const azimuth = -0.3 + smoothScroll * 1.7 + smX * 0.15;
-            const elevation = 0.3 - smoothScroll * 0.16 - smY * 0.1;
-            const dist = 15 - smoothScroll * 2;
+            const s = smoothScroll;
+            const eased = s * s * (3 - 2 * s); // smoothstep — the dive accelerates mid-page
+            const azimuth = -0.3 + s * 2.6 + smX * 0.15;
+            const elevation = 0.3 - eased * 0.42 - smY * 0.1;
+            const dist = 15 - eased * 9.2 - energy * 0.6;
             camera.position.set(
                 system.position.x + Math.sin(azimuth) * Math.cos(elevation) * dist,
                 system.position.y + Math.sin(elevation) * dist + 0.6,
                 system.position.z + Math.cos(azimuth) * Math.cos(elevation) * dist
             );
-            // Look left of the system so the core sits in the right third of the
-            // screen and drifts further out as the reader scrolls into dense text.
-            target.set(system.position.x - 4.2 - smoothScroll * 1.6, system.position.y - 0.4, system.position.z);
+            // Aim left of the core so it stays in the right third; as we get close
+            // the offset shrinks so the rings sweep past the camera on both sides.
+            const aimOffset = 4.2 - eased * 2.4;
+            target.set(system.position.x - aimOffset, system.position.y - 0.4 + eased * 0.3, system.position.z);
             camera.lookAt(target);
 
-            // keep glow modest once the reader is deep into the text
-            bloomPass.strength = 0.55 - Math.min(smoothScroll, 1) * 0.15;
+            // widen the lens while diving, plus a small kick while scrolling
+            const fov = 50 + eased * 14 + energy * 4;
+            if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
+
+            // glow eases off in dense text, flares briefly while scrolling
+            bloomPass.strength = 0.55 - Math.min(s, 1) * 0.15 + energy * 0.25;
 
             composer.render();
             if (!prefersReducedMotion) animId = requestAnimationFrame(animate);
