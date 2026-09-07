@@ -36,7 +36,7 @@ export default function ContactSection() {
                         <span className="text-slate-400">something that ships.</span>
                     </h2>
                     <p className="text-slate-300 text-base leading-relaxed max-w-md mb-8">
-                        Senior roles, agentic-AI consulting and well-scoped freelance builds. {profile.availability}.
+                        Senior roles, agentic-AI consulting and well-scoped freelance builds. Remote-friendly, {profile.timezone}.
                     </p>
                     <div className="flex flex-wrap items-center gap-3">
                         <a href={profile.resumeUrl} target="_blank" rel="noopener noreferrer"

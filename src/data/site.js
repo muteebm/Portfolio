@@ -19,7 +19,6 @@ export const profile = {
         'Bridge robust, scalable microservices with autonomous agentic workflows — and lead teams that ship LLM-powered systems which remove real operational bottlenecks.',
     location: 'Karachi, Pakistan',
     timezone: 'UTC+5',
-    availability: 'Open to remote roles & relocation (EU / AUS)',
     yearsExperience: 6,
     email: 'muteebmatloobm@gmail.com',
     phone: '+92 311 1080422',

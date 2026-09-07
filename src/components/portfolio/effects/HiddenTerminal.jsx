@@ -52,7 +52,7 @@ const COMMANDS = {
             `linkedin: ${links.linkedin.replace('https://www.', '')}`,
             `upwork:   ${links.upwork.replace('https://www.', '')}`,
             `resume:   ${window.location.origin}${profile.resumeUrl}`,
-            `status:   ${profile.availability}`,
+            `location: ${profile.location} (${profile.timezone})`,
         ],
     },
     help: [

@@ -50,10 +50,6 @@ body {
     animation-play-state: paused;
 }
 
-/* Slow conic spin for availability ring */
-@keyframes spinSlow {
-    to { transform: rotate(360deg); }
-}
 
 @keyframes audioEq {
     from { transform: scaleY(0.4); }
